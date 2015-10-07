@@ -19,7 +19,8 @@ module Common where
   type NameEnv v t = [(Name, (v, t))]
 
   -- Tipo de los tipos
-  data Type = Base 
+  data Type = Base
+            | Unit
             | Fun Type Type
 
             deriving (Show, Eq)
@@ -30,6 +31,7 @@ module Common where
                 |  App LamTerm LamTerm
                 |  LLet String LamTerm LamTerm
                 |  LAs LamTerm Type
+                |  LUnit
                 deriving (Show, Eq)
 
 
@@ -40,6 +42,7 @@ module Common where
              | Lam Type Term
              | Let Term Term
              | As Term Type
+             | TUnit
           deriving (Show, Eq)
 
   -- Valores

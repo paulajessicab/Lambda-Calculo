@@ -18,6 +18,7 @@ parensIf False = id
 -- pretty-printer de términos
 
 pp :: Int -> [String] -> Term -> Doc
+pp ii vs TUnit             = text "unit"
 pp ii vs (Bound k)         = text (vs !! (ii - k - 1))
 pp _  vs (Free (Global s)) = text s
 pp ii vs (i :@: c)         = sep [parensIf (isLam i) (pp ii vs i), 
@@ -55,6 +56,7 @@ isFun (Fun _ _)        = True
 isFun _                = False
 
 fv :: Term -> [String]
+fv TUnit             = []
 fv (Bound _)         = []
 fv (Free (Global n)) = [n]
 fv (Free _)          = []

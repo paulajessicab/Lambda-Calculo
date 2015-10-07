@@ -24,6 +24,7 @@ conversion' b (App t u)      = conversion' b t :@: conversion' b u
 conversion' b (Abs n t u)    = Lam t (conversion' (n:b) u)
 conversion' b (LLet n t1 t2) = Let (conversion' b t1) (conversion' (n:b) t2)
 conversion' b (LAs u t)      = As (conversion' b u) t
+conversion' b (LUnit)        = TUnit
  
 --- eval
 -----------------------
@@ -32,13 +33,15 @@ sub :: Int -> Term -> Term -> Term
 sub i t (Bound j) | i == j    = t
 sub _ _ (Bound j) | otherwise = Bound j
 sub _ _ (Free n)              = Free n
+sub _ _ (TUnit)               = TUnit
 sub i t (u :@: v)             = sub i t u :@: sub i t v
 sub i t (Lam t' u)            = Lam t' (sub (i+1) t u)
 sub i t (Let t0 t1)           = Let (sub i t t0) (sub (i+1) t t1)
-sub i t (As u t')              = As (sub i t u) t'
+sub i t (As u t')             = As (sub i t u) t'
 
 -- evaluador de términos
 eval :: NameEnv Value Type -> Term -> Value
+eval _ TUnit                 = VUnit
 eval _ (Bound _)             = error "variable ligada inesperada en eval"
 eval e (Free n)              = fst $ fromJust $ lookup n e
 eval _ (Lam t u)             = VLam t u
@@ -58,6 +61,7 @@ eval e (As u t)              = eval e u
 
 quote :: Value -> Term
 quote (VLam t f) = Lam t f
+quote VUnit      = TUnit
 
 ----------------------
 --- type checker
@@ -92,6 +96,7 @@ notfoundError :: Name -> Either String Type
 notfoundError n = err $ show n ++ " no está definida."
 
 infer' :: Context -> NameEnv Value Type -> Term -> Either String Type
+infer' _ _ TUnit     = ret Unit
 infer' c _ (Bound i) = ret (c !! i)
 infer' _ e (Free n) = case lookup n e of
                         Nothing -> notfoundError n
