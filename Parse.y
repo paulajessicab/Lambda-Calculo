@@ -22,13 +22,21 @@ import Data.Char
     '('     { TOpen }
     ')'     { TClose }
     '->'    { TArrow }
+    ','     { TComma }
     LET     { TLet }
     IN      { TIn }
     VAR     { TVar $$ }
     TYPE    { TType }
     DEF     { TDef }
+    TYPEUNIT { TTypeUnit }
+    NAT     { TNat }
+    ZERO    { TZero }
+    SUC     { TSuc }
+    REC     { TR }
     AS      { TAs }
     UNIT    { TokenUnit }
+    FST     { TFst }
+    SND     { TSnd }
     
 
 %right VAR
@@ -51,6 +59,9 @@ Exp     :: { LamTerm }
         : '\\' VAR ':' Type '.' Exp    { Abs $2 $4 $6 }
         | LET VAR '=' Exp IN Exp       { LLet $2 $4 $6 }
         | Exp AS Type                  { LAs $1 $3 }
+        | REC Atom Atom Atom           { LR $2 $3 $4 }
+        | FST Atom                     { LFst $2 }
+        | SND Atom                     { LSnd $2 }
         | NAbs                         { $1 }
         
 NAbs    :: { LamTerm }
@@ -59,10 +70,16 @@ NAbs    :: { LamTerm }
 
 Atom    :: { LamTerm }
         : VAR                          { LVar $1 }
+        | SUC Atom                     { LSuc $2 }
+        | '(' Exp ',' Exp ')'          { LTup $2 $4 }
         | '(' Exp ')'                  { $2 }
         | UNIT                         { LUnit }
+        | ZERO                         { LZero }
 
 Type    : TYPE                         { Base }
+        | TYPEUNIT                     { Unit }
+        | NAT                          { Nat } 
+        | '(' Type ',' Type ')'        { Tup $2 $4 }
         | Type '->' Type               { Fun $1 $3 }
         | '(' Type ')'                 { $2 }
 
@@ -101,17 +118,25 @@ happyError = \ s i -> Failed $ "Línea "++(show (i::LineNumber))++": Error de pa
 data Token = TVar String
                | TType
                | TDef
+               | TTypeUnit
+               | TNat
                | TAbs
                | TDot
                | TOpen
                | TClose 
                | TColon
                | TArrow
+               | TComma
                | TEquals
                | TLet
                | TAs
                | TIn
                | TokenUnit
+               | TFst
+               | TSnd
+               | TZero
+               | TSuc
+               | TR
                | TEOF
                deriving Show
 
@@ -133,14 +158,22 @@ lexer cont s = case s of
                     (')':cs) -> cont TClose cs
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
+                    (',':cs) -> cont TComma cs
                     unknown -> \line -> Failed $ "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
                                            ("B",rest)   -> cont TType rest
+                                           ("Unit", rest) -> cont TTypeUnit rest
+                                           ("Nat", rest) -> cont TNat rest
                                            ("def",rest) -> cont TDef rest
                                            ("let",rest) -> cont TLet rest
                                            ("in",rest) -> cont TIn rest
                                            ("as", rest) -> cont TAs rest
                                            ("unit", rest) -> cont TokenUnit rest
+                                           ("fst", rest) -> cont TFst rest
+                                           ("snd", rest) -> cont TSnd rest
+                                           ("zero", rest) -> cont TZero rest
+                                           ("suc", rest) -> cont TSuc rest
+                                           ("R", rest) -> cont TR rest
                                            (var,rest)   -> cont (TVar var) rest
                           consumirBK anidado cl cont s = case s of
                                                                       ('-':('-':cs)) -> consumirBK anidado cl cont $ dropWhile ((/=) '\n') cs

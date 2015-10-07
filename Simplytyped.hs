@@ -19,12 +19,19 @@ conversion :: LamTerm -> Term
 conversion = conversion' []
 
 conversion' :: [String] -> LamTerm -> Term
+conversion' b LUnit          = TUnit
+conversion' b LZero          = Zero
 conversion' b (LVar n)       = maybe (Free (Global n)) Bound (n `elemIndex` b)
+conversion' b (LFst t)       = Fst (conversion' b t)
+conversion' b (LSnd t)       = Snd (conversion' b t)
 conversion' b (App t u)      = conversion' b t :@: conversion' b u
 conversion' b (Abs n t u)    = Lam t (conversion' (n:b) u)
 conversion' b (LLet n t1 t2) = Let (conversion' b t1) (conversion' (n:b) t2)
 conversion' b (LAs u t)      = As (conversion' b u) t
-conversion' b (LUnit)        = TUnit
+conversion' b (LTup t1 t2)   = TTup (conversion' b t1) (conversion' b t2)
+conversion' b (LSuc t)       = Suc (conversion' b t)
+conversion' b (LR t0 t1 t2)  = R (conversion' b t0) (conversion' b t1) (conversion' b t2)
+
  
 --- eval
 -----------------------
@@ -33,15 +40,23 @@ sub :: Int -> Term -> Term -> Term
 sub i t (Bound j) | i == j    = t
 sub _ _ (Bound j) | otherwise = Bound j
 sub _ _ (Free n)              = Free n
-sub _ _ (TUnit)               = TUnit
+sub _ _ TUnit                 = TUnit
+sub _ _ Zero                  = Zero
+sub i t (Fst t')              = Fst (sub i t t')
+sub i t (Snd t')              = Snd (sub i t t')
 sub i t (u :@: v)             = sub i t u :@: sub i t v
 sub i t (Lam t' u)            = Lam t' (sub (i+1) t u)
 sub i t (Let t0 t1)           = Let (sub i t t0) (sub (i+1) t t1)
 sub i t (As u t')             = As (sub i t u) t'
+sub i t (Suc t')              = Suc (sub i t t')
+sub i t (TTup t0 t1)          = TTup (sub i t t0) (sub i t t1)
+sub i t (R t0 t1 t2)          = R (sub i t t0) (sub i t t1) (sub i t t2)
 
 -- evaluador de términos
 eval :: NameEnv Value Type -> Term -> Value
 eval _ TUnit                 = VUnit
+eval _ Zero                  = VZero
+eval e (Suc t)               = VSuc (eval e t)
 eval _ (Bound _)             = error "variable ligada inesperada en eval"
 eval e (Free n)              = fst $ fromJust $ lookup n e
 eval _ (Lam t u)             = VLam t u
@@ -54,14 +69,30 @@ eval e (u :@: v)             = case eval e u of
                  _         -> error "Error de tipo en run-time, verificar type checker"
 eval e (Let t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1) --ver case
 eval e (As u t)              = eval e u
+eval e (Fst t)              = case eval e t of
+                                    VTup t0 t1 -> t0
+                                    _          -> error "Error de tipo en run-time, el argumento debe ser una tupla"
+eval e (Snd t)              = case eval e t of
+                                    VTup t0 t1 -> t1
+                                    _          -> error "Error de tipo en run-time, el argumento debe ser una tupla"
+eval e (TTup t0 t1)          = VTup (eval e t0) (eval e t1)
+eval e (R t0 t1 t2)           = case eval e t2 of
+                                    VZero  -> eval e t0
+                                    VSuc t -> eval e (t2 :@: (R t0 t1 (quote t)) :@: (quote t))
+                                    _      -> error "Error de tipo en run-time, el tercer argumento de R tiene que ser Nat"
+
+                                    
 
 -----------------------
 --- quoting
 -----------------------
 
 quote :: Value -> Term
-quote (VLam t f) = Lam t f
 quote VUnit      = TUnit
+quote VZero = Zero
+quote (VSuc t) = Suc (quote t)
+quote (VLam t f) = Lam t f
+quote (VTup t0 t1) = TTup (quote t0) (quote t1)
 
 ----------------------
 --- type checker
@@ -97,6 +128,11 @@ notfoundError n = err $ show n ++ " no está definida."
 
 infer' :: Context -> NameEnv Value Type -> Term -> Either String Type
 infer' _ _ TUnit     = ret Unit
+infer' _ _ Zero      = ret Nat
+infer' c e (Suc t)  = infer' c e t >>= \tt->
+                            case tt of
+                                Nat -> ret Nat
+                                _   -> notfunError tt
 infer' c _ (Bound i) = ret (c !! i)
 infer' _ e (Free n) = case lookup n e of
                         Nothing -> notfoundError n
@@ -114,4 +150,26 @@ infer' c e (Let t0 t1) = infer' c e t0 >>= \tt0 ->
                                 infer' (tt0:c) e t1
 infer' c e (As u t) = infer' c e u >>= \tu ->
                             if tu == t then ret t else matchError t tu
+infer' c e (TTup t0 t1) = infer' c e t0 >>= \tt0 ->
+                          infer' c e t1 >>= \tt1 ->
+                                ret (Tup tt0 tt1)
+infer' c e (Fst t) = infer' c e t >>= \tt ->
+                        case tt of
+                            Tup tt0 tt1 -> ret tt0
+                            _           -> notfunError tt
+infer' c e (Snd t) = infer' c e t >>= \tt ->
+                        case tt of
+                            Tup tt0 tt1 -> ret tt1
+                            _           -> notfunError tt
+infer' c e (R t0 t1 t2) = infer' c e t0 >>= \tt0 -> 
+                          infer' c e t1 >>= \tt1 ->
+                          infer' c e t2 >>= \tt2 -> 
+                                if tt2 == Nat
+                                then case tt1 of
+                                        Fun (Fun t Nat) t' -> if (t == t') && (t == tt0)
+                                                              then ret t
+                                                              else matchError t tt0
+                                        _                  -> notfunError tt1
+                                else notfunError tt2
+                                                
 ----------------------------------

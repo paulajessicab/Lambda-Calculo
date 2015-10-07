@@ -21,35 +21,50 @@ module Common where
   -- Tipo de los tipos
   data Type = Base
             | Unit
+            | Nat
             | Fun Type Type
-
+            | Tup Type Type
             deriving (Show, Eq)
   
   -- Términos con nombres
-  data LamTerm  =  LVar String
+  data LamTerm  =  LUnit
+                |  LZero
+                |  LSuc LamTerm
+                |  LR LamTerm LamTerm LamTerm
+                |  LVar String
                 |  Abs String Type LamTerm
                 |  App LamTerm LamTerm
                 |  LLet String LamTerm LamTerm
                 |  LAs LamTerm Type
-                |  LUnit
+                |  LTup LamTerm LamTerm
+                |  LFst LamTerm
+                |  LSnd LamTerm
                 deriving (Show, Eq)
 
 
   -- Términos localmente sin nombres
-  data Term  = Bound Int
-             | Free Name 
+  data Term  = TUnit
+             | Zero
+             | Bound Int
+             | Free Name
+             | Suc Term
+             | R Term Term Term 
              | Term :@: Term
              | Lam Type Term
              | Let Term Term
              | As Term Type
-             | TUnit
+             | TTup Term Term
+             | Fst Term
+             | Snd Term
           deriving (Show, Eq)
 
   -- Valores
-  data Value = VLam Type Term 
-             | VUnit 
-
-
+  data Value = VUnit
+             | VZero
+             | VSuc Value
+             | VLam Type Term 
+             | VTup Value Value
+            deriving Show
 
   -- Contextos del tipado
   type Context = [Type]
