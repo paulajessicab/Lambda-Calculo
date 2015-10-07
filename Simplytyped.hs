@@ -35,7 +35,7 @@ sub _ _ (Free n)              = Free n
 sub i t (u :@: v)             = sub i t u :@: sub i t v
 sub i t (Lam t' u)            = Lam t' (sub (i+1) t u)
 sub i t (Let t0 t1)           = Let (sub i t t0) (sub (i+1) t t1)
-sub i t (As u t)              = As (sub i t u) t
+sub i t (As u t')              = As (sub i t u) t'
 
 -- evaluador de términos
 eval :: NameEnv Value Type -> Term -> Value
@@ -105,7 +105,8 @@ infer' c e (t :@: u) = infer' c e t >>= \tt ->
                          _         -> notfunError tt
 infer' c e (Lam t u) = infer' (t:c) e u >>= \tu ->
                        ret $ Fun t tu
-infer' c e (Let t0 t1) = infer' ((infer' c e t0):c) e t1 --sacar either
+infer' c e (Let t0 t1) = infer' c e t0 >>= \tt0 -> 
+                                infer' (tt0:c) e t1
 infer' c e (As u t) = infer' c e u >>= \tu ->
                             if tu == t then ret t else matchError t tu
 ----------------------------------
