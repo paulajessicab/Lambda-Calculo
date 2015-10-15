@@ -1,0 +1,7 @@
+def predec = \n:Nat. R zero (\x:Nat. \y:Nat. y) n
+
+def ack = \m:Nat. R (\n:Nat. suc n) (\x:Nat->Nat. \y:Nat. \n:Nat. R (x (suc zero)) (\p:Nat. \q:Nat. x p) n) m 
+
+
+
+

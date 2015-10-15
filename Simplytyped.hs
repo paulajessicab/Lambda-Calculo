@@ -63,10 +63,13 @@ eval _ (Lam t u)             = VLam t u
 eval e (Lam _ u :@: Lam s v) = eval e (sub 0 (Lam s v) u)
 eval e (Lam t u :@: v)       = case eval e v of
                  VLam t' u' -> eval e (Lam t u :@: Lam t' u')
-                 _          -> error "Error de tipo en run-time, verificar type checker"
+                 VUnit      -> eval e (sub 0 TUnit u)
+                 VZero      -> eval e (sub 0 Zero u)
+                 VSuc x     -> eval e (sub 0 (quote x) u)
+                 _          -> error "Error de tipo en run-time, verificar type checker0"
 eval e (u :@: v)             = case eval e u of
                  VLam t u' -> eval e (Lam t u' :@: v)
-                 _         -> error "Error de tipo en run-time, verificar type checker"
+                 _         -> error "Error de tipo en run-time, verificar type checker1"
 eval e (Let t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1) --ver case
 eval e (As u t)              = eval e u
 eval e (Fst t)              = case eval e t of
@@ -78,7 +81,7 @@ eval e (Snd t)              = case eval e t of
 eval e (TTup t0 t1)          = VTup (eval e t0) (eval e t1)
 eval e (R t0 t1 t2)           = case eval e t2 of
                                     VZero  -> eval e t0
-                                    VSuc t -> eval e (t2 :@: (R t0 t1 (quote t)) :@: (quote t))
+                                    VSuc t -> eval e ((t1 :@: (R t0 t1 (quote t))) :@: (quote t))
                                     _      -> error "Error de tipo en run-time, el tercer argumento de R tiene que ser Nat"
 
                                     
@@ -163,13 +166,10 @@ infer' c e (Snd t) = infer' c e t >>= \tt ->
                             _           -> notfunError tt
 infer' c e (R t0 t1 t2) = infer' c e t0 >>= \tt0 -> 
                           infer' c e t1 >>= \tt1 ->
-                          infer' c e t2 >>= \tt2 -> 
-                                if tt2 == Nat
-                                then case tt1 of
-                                        Fun (Fun t Nat) t' -> if (t == t') && (t == tt0)
-                                                              then ret t
-                                                              else matchError t tt0
-                                        _                  -> notfunError tt1
-                                else notfunError tt2
+                          infer' c e t2 >>= \tt2 -> case tt1 of
+                                                        Fun t t' -> if t == tt0 && t' == Fun Nat t && tt2 == Nat
+                                                                    then ret t
+                                                                    else matchError (Fun t t') tt1
+                                                        _        -> notfunError tt1
                                                 
 ----------------------------------
