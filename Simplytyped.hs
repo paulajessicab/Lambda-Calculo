@@ -68,7 +68,7 @@ eval e (Lam t u :@: v)       = case eval e v of
 eval e (u :@: v)             = case eval e u of
                  VLam t u' -> eval e (Lam t u' :@: v)
                  _         -> error "Error de tipo en run-time, verificar type checker"
-eval e (Let t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1) --ver case
+eval e (Let t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1)
 eval e (As u t)              = eval e u
 eval e (Fst t)              = case eval e t of
                                     VTup t0 t1 -> t0
@@ -112,6 +112,7 @@ err = Left
 
 (>>=) :: Either String Type -> (Type -> Either String Type) -> Either String Type
 (>>=) v f = either Left f v
+
 -- fcs. de error
 
 matchError :: Type -> Type -> Either String Type

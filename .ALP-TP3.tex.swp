@@ -70,10 +70,9 @@
 \vspace{0.1in}\large{\textit{\hmwkClassName}}
 \vspace{3in}
 }
-\date{3 de septiembre de 2015}
+\date{15 de octubre de 2015}
 \author{Borrero, Paula (P-4415/6) \and Herranz, Cecilia (H-0471/5) }
 %-----------------------------------------------------------------------------
-
 
 \begin{document}
 \maketitle
@@ -81,9 +80,7 @@
 \newpage
 {\bf Ejercicio 1}\\
 \\
-$S = \backslash x:B->B->B.\backslash y:B->B.\backslash z:B.(x z) (y z)$
-
-Árbol de derivación en página 4.
+Árbol de derivación de tipos de $S = \lambda x:B\rightarrow B\rightarrow B.\lambda y:B\rightarrow B.\lambda z:B.(x z) (y z)$ en página 4.
 
 El resultado del árbol queda comprobado usando el intérprete:
 \vspace{-0.5cm}
@@ -193,9 +190,584 @@ def ack = \m:Nat. R (\n:Nat. suc n) (\x:Nat->Nat. \y:Nat. \n:Nat. R (x (suc 0))
 \end{turn}
 \end{center}
 \newpage
+\newgeometry{}
 \marginsize{2cm}{2cm}{2cm}{2cm}
 {\bf Los ejercicios 3, 4, 6, 8 y 10 se encuentran resueltos en el código escrito a continuación:}\\
+\\
+Código de Common.hs:
+\vspace{-1cm}
+
 \begin{Verbatim}[commandchars=\\\{\}]
 
+\textcolor{blue}{module Common where}
+
+  \textcolor{red}{-- Comandos interactivos o de archivos}
+  \textcolor{blue}{data} \textcolor{orange}{Stmt} i = \textcolor{orange}{Def String} i   \textcolor{red}{--  Declarar un nuevo identificador x, let x = t}
+              | \textcolor{orange}{Eval i}         \textcolor{red}{--  Evaluar el término}
+    \textcolor{blue}{deriving} (\textcolor{orange}{Show})
+  
+  \textcolor{blue}{instance} \textcolor{orange}{Functor Stmt} \textcolor{blue}{where}
+    fmap f (\textcolor{orange}{Def} s i) = \textcolor{orange}{Def} s (f i)
+    fmap f (\textcolor{orange}{Eval} i)  = \textcolor{orange}{Eval} (f i)
+
+  \textcolor{red}{-- Tipos de los nombres}
+  \textcolor{blue}{data} \textcolor{orange}{Name}
+     =  \textcolor{orange}{Global  String}
+     |  \textcolor{orange}{Quote   Int}
+    \textcolor{blue}{deriving} (\textcolor{orange}{Show, Eq})
+
+  \textcolor{red}{-- Entornos}
+  \textcolor{blue}{type} \textcolor{orange}{NameEnv} v t = [(\textcolor{orange}{Name}, (v, t))]
+
+  \textcolor{red}{-- Tipo de los tipos}
+  \textcolor{blue}{data} \textcolor{orange}{Type} = \textcolor{orange}{Base}
+            | \textcolor{orange}{Unit}
+            | \textcolor{orange}{Nat}
+            | \textcolor{orange}{Fun Type Type}
+            | \textcolor{orange}{Tup Type Type}
+            \textcolor{blue}{deriving} (\textcolor{orange}{Show, Eq})
+  
+  \textcolor{red}{-- Términos con nombres}
+  \textcolor{blue}{data} \textcolor{orange}{LamTerm}  =  \textcolor{orange}{LUnit}
+                |  \textcolor{orange}{LZero}
+                |  \textcolor{orange}{LSuc LamTerm}
+                |  \textcolor{orange}{LR LamTerm LamTerm LamTerm}
+                |  \textcolor{orange}{LVar String}
+                |  \textcolor{orange}{Abs String Type LamTerm}
+                |  \textcolor{orange}{App LamTerm LamTerm}
+                |  \textcolor{orange}{LLet String LamTerm LamTerm}
+                |  \textcolor{orange}{LAs LamTerm Type}
+                |  \textcolor{orange}{LTup LamTerm LamTerm}
+                |  \textcolor{orange}{LFst LamTerm}
+                |  \textcolor{orange}{LSnd LamTerm}
+                \textcolor{blue}{deriving} (\textcolor{orange}{Show, Eq})
+
+
+  \textcolor{red}{-- Términos localmente sin nombres}
+  \textcolor{blue}{data} \textcolor{orange}{Term}  = \textcolor{orange}{TUnit}
+             | \textcolor{orange}{Zero}
+             | \textcolor{orange}{Bound Int}
+             | \textcolor{orange}{Free Name}
+             | \textcolor{orange}{Suc Term}
+             | \textcolor{orange}{R Term Term Term}
+             | \textcolor{orange}{Term :@: Term}
+             | \textcolor{orange}{Lam Type Term}
+             | \textcolor{orange}{Let Term Term}
+             | \textcolor{orange}{As Term Type}
+             | \textcolor{orange}{TTup Term Term}
+             | \textcolor{orange}{Fst Term}
+             | \textcolor{orange}{Snd Term}
+          \textcolor{blue}{deriving} (\textcolor{orange}{Show, Eq})
+
+  \textcolor{red}{-- Valores}
+  \textcolor{blue}{data} \textcolor{orange}{Value} = \textcolor{orange}{VUnit}
+             | \textcolor{orange}{VZero}
+             | \textcolor{orange}{VSuc Value}
+             | \textcolor{orange}{VLam Type Term}
+             | \textcolor{orange}{VTup Value Value}
+            \textcolor{blue}{deriving} \textcolor{orange}{Show}
+
+  \textcolor{red}{-- Contextos del tipado}
+  \textcolor{blue}{type} \textcolor{orange}{Context} = [\textcolor{orange}{Type}]
 \end{Verbatim}
+Código de Symplytyped.hs
+\vspace{-0.5cm}
+\begin{Verbatim}[commandchars=\&\{\}]
+&textcolor{blue}{module Simplytyped} (
+       conversion,    &textcolor{red}{-- conversion a terminos localmente sin nombre}
+       eval,          &textcolor{red}{-- evaluador}
+       infer,         &textcolor{red}{-- inferidor de tipos}
+       quote          &textcolor{red}{-- valores -> terminos}
+       )
+       &textcolor{blue}{where}
+
+&textcolor{blue}{import Data.List}
+&textcolor{blue}{import Data.Maybe}
+&textcolor{blue}{import Prelude hiding ((>>=))}
+&textcolor{blue}{import Text.PrettyPrint.HughesPJ (render)}
+&textcolor{blue}{import PrettyPrinter}
+&textcolor{blue}{import Common}
+
+&textcolor{red}{-- conversion a términos localmente sin nombres}
+conversion :: &textcolor{orange}{LamTerm} -> &textcolor{orange}{Term}
+conversion = conversion' []
+
+conversion' :: [&textcolor{orange}{String}] -> &textcolor{orange}{LamTerm} -> &textcolor{orange}{Term}
+conversion' b &textcolor{orange}{LUnit}          = &textcolor{orange}{TUnit}
+conversion' b &textcolor{orange}{LZero}          = &textcolor{orange}{Zero}
+conversion' b (&textcolor{orange}{LVar} n)       = maybe (&textcolor{orange}{Free} (&textcolor{orange}{Global} n)) &textcolor{orange}{Bound} (n `elemIndex` b)
+conversion' b (&textcolor{orange}{LFst} t)       = &textcolor{orange}{Fst} (conversion' b t)
+conversion' b (&textcolor{orange}{LSnd} t)       = &textcolor{orange}{Snd} (conversion' b t)
+conversion' b (&textcolor{orange}{App} t u)      = conversion' b t :@: conversion' b u
+conversion' b (&textcolor{orange}{Abs} n t u)    = &textcolor{orange}{Lam} t (conversion' (n:b) u)
+conversion' b (&textcolor{orange}{LLet} n t1 t2) = &textcolor{orange}{Let} (conversion' b t1) (conversion' (n:b) t2)
+conversion' b (&textcolor{orange}{LAs} u t)      = &textcolor{orange}{As} (conversion' b u) t
+conversion' b (&textcolor{orange}{LTup} t1 t2)   = &textcolor{orange}{TTup} (conversion' b t1) (conversion' b t2)
+conversion' b (&textcolor{orange}{LSuc} t)       = &textcolor{orange}{Suc} (conversion' b t)
+conversion' b (&textcolor{orange}{LR} t0 t1 t2)  = &textcolor{orange}{R} (conversion' b t0) (conversion' b t1)
+                                                               (conversion' b t2)
+
+ 
+&textcolor{red}{--- eval ----------------------}
+
+sub :: &textcolor{orange}{Int} -> &textcolor{orange}{Term} -> &textcolor{orange}{Term} -> &textcolor{orange}{Term}
+sub i t (&textcolor{orange}{Bound} j) | i == j    = t
+sub _ _ (&textcolor{orange}{Bound} j) | otherwise = &textcolor{orange}{Bound} j
+sub _ _ (&textcolor{orange}{Free} n)              = &textcolor{orange}{Free} n
+sub _ _ &textcolor{orange}{TUnit}                 = &textcolor{orange}{TUnit}
+sub _ _ &textcolor{orange}{Zero}                  = &textcolor{orange}{Zero}
+sub i t (&textcolor{orange}{Fst} t')              = &textcolor{orange}{Fst} (sub i t t')
+sub i t (&textcolor{orange}{Snd} t')              = &textcolor{orange}{Snd} (sub i t t')
+sub i t (u :@: v)             = sub i t u :@: sub i t v
+sub i t (&textcolor{orange}{Lam} t' u)            = &textcolor{orange}{Lam} t' (sub (i+1) t u)
+sub i t (&textcolor{orange}{Let} t0 t1)           = &textcolor{orange}{Let} (sub i t t0) (sub (i+1) t t1)
+sub i t (&textcolor{orange}{As} u t')             = &textcolor{orange}{As} (sub i t u) t'
+sub i t (&textcolor{orange}{Suc} t')              = &textcolor{orange}{Suc} (sub i t t')
+sub i t (&textcolor{orange}{TTup} t0 t1)          = &textcolor{orange}{TTup} (sub i t t0) (sub i t t1)
+sub i t (&textcolor{orange}{R} t0 t1 t2)          = &textcolor{orange}{R} (sub i t t0) (sub i t t1) (sub i t t2)
+
+&textcolor{red}{-- evaluador de términos}
+eval :: &textcolor{orange}{NameEnv Value Type} -> &textcolor{orange}{Term} -> &textcolor{orange}{Value}
+eval _ &textcolor{orange}{TUnit}                 = &textcolor{orange}{VUnit}
+eval _ &textcolor{orange}{Zero}                  = &textcolor{orange}{VZero}
+eval e (&textcolor{orange}{Suc} t)               = &textcolor{orange}{VSuc} (eval e t)
+eval _ (&textcolor{orange}{Bound} _)             = error &textcolor{orange}{"variable ligada inesperada en eval"}
+eval e (&textcolor{orange}{Free} n)              = fst $ fromJust $ lookup n e
+eval _ (&textcolor{orange}{Lam} t u)             = &textcolor{orange}{VLam} t u
+eval e (&textcolor{orange}{Lam} _ u :@: Lam s v) = eval e (sub 0 (&textcolor{orange}{Lam} s v) u)
+eval e (&textcolor{orange}{Lam} t u :@: v)       = &textcolor{blue}{case} eval e v &textcolor{blue}{of}
+                 &textcolor{orange}{VLam} t' u' -> eval e (&textcolor{orange}{Lam} t u :@: &textcolor{orange}{Lam} t' u')
+                 &textcolor{orange}{VUnit}      -> eval e (sub 0 &textcolor{orange}{TUnit} u)
+                 &textcolor{orange}{VZero}      -> eval e (sub 0 &textcolor{orange}{Zero} u)
+                 &textcolor{orange}{VSuc} x     -> eval e (sub 0 (quote (V&textcolor{orange}{Suc} x)) u)
+                 _          -> error &textcolor{orange}{"Error de tipo en run-time,}
+                                                  &textcolor{orange}{verificar type checker"}
+eval e (u :@: v)             = &textcolor{blue}{case} eval e u &textcolor{blue}{of}
+                 &textcolor{orange}{VLam} t u' -> eval e (&textcolor{orange}{Lam} t u' :@: v)
+                 _         -> error &textcolor{orange}{"Error de tipo en run-time,}
+                                                   &textcolor{orange}{verificar type checker"}
+eval e (&textcolor{orange}{Let} t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1)
+eval e (&textcolor{orange}{As} u t)              = eval e u
+eval e (&textcolor{orange}{Fst} t)               = &textcolor{blue}{case} eval e t &textcolor{blue}{of}
+                                    &textcolor{orange}{VTup} t0 t1 -> t0
+                                    _          -> error &textcolor{orange}{"Error de tipo en run-time,}
+                                                   &textcolor{orange}{el argumento debe ser una tupla"}
+eval e (&textcolor{orange}{Snd} t)               = &textcolor{blue}{case} eval e t &textcolor{blue}{of}
+                                    &textcolor{orange}{VTup} t0 t1 -> t1
+                                    _          -> error &textcolor{orange}{"Error de tipo en run-time,}
+                                                  &textcolor{orange}{el argumento debe ser una tupla"}
+eval e (&textcolor{orange}{TTup} t0 t1)          = &textcolor{orange}{VTup} (eval e t0) (eval e t1)
+eval e (&textcolor{orange}{R} t0 t1 t2) = &textcolor{blue}{case} eval e t2 &textcolor{blue}{of}
+                       &textcolor{orange}{VZero}  -> eval e t0
+                       &textcolor{orange}{VSuc} t -> eval e ((t1 :@: (&textcolor{orange}{R} t0 t1 (quote t))) :@: (quote t))
+	              _      -> error &textcolor{orange}{"Error de tipo en run-time, el} 
+	                                  &textcolor{orange}{tercer argumento de R tiene que ser Nat"}
+
+
+&textcolor{red}{-----------------------}
+&textcolor{red}{------ quoting}
+&textcolor{red}{-----------------------}
+
+quote :: &textcolor{orange}{Value} -> &textcolor{orange}{Term}
+quote &textcolor{orange}{VUnit}      = &textcolor{orange}{TUnit}
+quote &textcolor{orange}{VZero} = &textcolor{orange}{Zero}
+quote (&textcolor{orange}{VSuc} t) = &textcolor{orange}{Suc} (quote t)
+quote (&textcolor{orange}{VLam} t f) = &textcolor{orange}{Lam} t f
+quote (&textcolor{orange}{VTup} t0 t1) = &textcolor{orange}{TTup} (quote t0) (quote t1)
+
+&textcolor{red}{-----------------------}
+&textcolor{red}{--- type checker}
+&textcolor{red}{-----------------------}
+
+&textcolor{red}{-- type checker}
+infer :: &textcolor{orange}{NameEnv Value Type} -> &textcolor{orange}{Term} -> &textcolor{orange}{Either String Type}
+infer = infer' []
+
+&textcolor{red}{-- definiciones auxiliares}
+ret :: &textcolor{orange}{Type} -> &textcolor{orange}{Either String Type}
+ret = &textcolor{orange}{Right}
+
+err :: &textcolor{orange}{String} -> &textcolor{orange}{Either String Type}
+err = &textcolor{orange}{Left}
+
+(>>=) :: &textcolor{orange}{Either String Type} -> (&textcolor{orange}{Type} -> &textcolor{orange}{Either String Type}) -> &textcolor{orange}{Either String Type}
+(>>=) v f = either &textcolor{orange}{Left} f v
+
+&textcolor{red}{-- fcs. de error}
+
+matchError :: &textcolor{orange}{Type} -> &textcolor{orange}{Type} -> &textcolor{orange}{Either String Type}
+matchError t1 t2 = err $ &textcolor{orange}{"se esperaba "} ++
+                         render (printType t1) ++
+                         &textcolor{orange}{", pero "} ++
+                         render (printType t2) ++
+                         &textcolor{orange}{" fue inferido."}
+
+notfunError :: &textcolor{orange}{Type} -> &textcolor{orange}{Either String Type}
+notfunError t1 = err $ render (printType t1) ++ &textcolor{orange}{" no puede ser aplicado."}
+
+notfoundError :: &textcolor{orange}{Name} -> &textcolor{orange}{Either String Type}
+notfoundError n = err $ show n ++ &textcolor{orange}{" no está definida."}
+
+infer' :: &textcolor{orange}{Context} -> &textcolor{orange}{NameEnv Value Type} -> &textcolor{orange}{Term} -> &textcolor{orange}{Either String Type}
+infer' _ _ &textcolor{orange}{TUnit}     = ret &textcolor{orange}{Unit}
+infer' _ _ &textcolor{orange}{Zero}      = ret &textcolor{orange}{Nat}
+infer' c e (&textcolor{orange}{Suc} t)  = infer' c e t >>= \tt->
+                            &textcolor{blue}{case} tt &textcolor{blue}{of}
+                                &textcolor{orange}{Nat} -> ret &textcolor{orange}{Nat}
+                                _   -> matchError &textcolor{orange}{Nat} tt
+infer' c _ (&textcolor{orange}{Bound} i) = ret (c !! i)
+infer' _ e (&textcolor{orange}{Free} n) = &textcolor{blue}{case} lookup n e &textcolor{blue}{of}
+                        &textcolor{orange}{Nothing} -> notfoundError n
+                        &textcolor{orange}{Just} (_,t) -> ret t
+infer' c e (t :@: u) = infer' c e t >>= \tt -> 
+                       infer' c e u >>= \tu ->
+                       &textcolor{blue}{case} tt &textcolor{blue}{of}
+                         &textcolor{orange}{Fun} t1 t2 -> &textcolor{blue}{if} (tu == t1) 
+                                        &textcolor{blue}{then} ret t2
+                                        &textcolor{blue}{else} matchError t1 tu
+                         _         -> notfunError tt
+infer' c e (&textcolor{orange}{Lam} t u) = infer' (t:c) e u >>= \tu ->
+                       ret $ &textcolor{orange}{Fun} t tu
+infer' c e (&textcolor{orange}{Let} t0 t1) = infer' c e t0 >>= \tt0 -> 
+                                infer' (tt0:c) e t1
+infer' c e (&textcolor{orange}{As} u t) = infer' c e u >>= \tu ->
+                            &textcolor{blue}{if} tu == t &textcolor{blue}{then} ret t &textcolor{blue}{else} matchError t tu
+infer' c e (&textcolor{orange}{TTup} t0 t1) = infer' c e t0 >>= \tt0 ->
+                          infer' c e t1 >>= \tt1 ->
+                               ret (&textcolor{orange}{Tup} tt0 tt1)
+infer' c e (&textcolor{orange}{Fst} t) = infer' c e t >>= \tt ->
+                        &textcolor{blue}{case} tt &textcolor{blue}{of}
+                            &textcolor{orange}{Tup} tt0 tt1 -> ret tt0
+                            _           -> notfunError tt
+infer' c e (&textcolor{orange}{Snd} t) = infer' c e t >>= \tt ->
+                        &textcolor{blue}{case} tt &textcolor{blue}{of}
+                            &textcolor{orange}{Tup} tt0 tt1 -> ret tt1
+                            _           -> notfunError tt
+infer' c e (&textcolor{orange}{R} t0 t1 t2) = infer' c e t0 >>= \tt0 -> 
+                          infer' c e t1 >>= \tt1 ->
+                          infer' c e t2 >>= \tt2 ->
+                          &textcolor{blue}{case} tt1 &textcolor{blue}{of}
+                            &textcolor{orange}{Fun} t t' -> if t == tt0 &&&& t' == &textcolor{orange}{Fun Nat} t &&&& tt2 == &textcolor{orange}{Nat}
+                                        &textcolor{blue}{then} ret t
+                                        &textcolor{blue}{else} matchError (&textcolor{orange}{Fun} t t') tt1
+                            _        -> notfunError tt1
+\end{Verbatim}
+Código de Parse.y:
+\begin{Verbatim}
+{
+module Parse where
+import Common
+import Data.Maybe
+import Data.Char
+
+}
+
+%monad { P } { thenP } { returnP }
+%name parseStmt Def
+%name parseStmts Defs
+%name term Exp
+
+%tokentype { Token }
+%lexer {lexer} {TEOF}
+
+%token
+    '='     { TEquals }
+    ':'     { TColon }
+    '\\'    { TAbs }
+    '.'     { TDot }
+    '('     { TOpen }
+    ')'     { TClose }
+    '->'    { TArrow }
+    ','     { TComma }
+    LET     { TLet }
+    IN      { TIn }
+    VAR     { TVar $$ }
+    TYPE    { TType }
+    DEF     { TDef }
+    TYPEUNIT { TTypeUnit }
+    NAT     { TNat }
+    ZERO    { TZero }
+    SUC     { TSuc }
+    REC     { TR }
+    AS      { TAs }
+    UNIT    { TokenUnit }
+    FST     { TFst }
+    SND     { TSnd }
+    
+
+%right VAR
+%left '=' 
+%right '->'
+%right '\\' '.' LET IN
+%left AS 
+%right REC
+%right SUC 
+%right SND FST
+
+
+%%
+
+Def     :  Defexp                      { $1 }
+        |  Exp	                       { Eval $1 }
+Defexp  : DEF VAR '=' Exp              { Def $2 $4 } 
+
+Exp     :: { LamTerm }
+        : '\\' VAR ':' Type '.' Exp    { Abs $2 $4 $6 }
+        | LET VAR '=' Exp IN Exp       { LLet $2 $4 $6 }
+        | Exp AS Type                  { LAs $1 $3 }
+        | REC Atom Atom Exp            { LR $2 $3 $4 }
+        | FST Atom                     { LFst $2 }
+        | SND Atom                     { LSnd $2 }
+        | NAbs                         { $1 }
+        
+NAbs    :: { LamTerm }
+        : NAbs Atom                    { App $1 $2 }
+        | Atom                         { $1 }
+
+Atom    :: { LamTerm }
+        : VAR                          { LVar $1 }
+        | SUC Atom                     { LSuc $2 }
+        | '(' Exp ',' Exp ')'          { LTup $2 $4 }
+        | '(' Exp ')'                  { $2 }
+        | UNIT                         { LUnit }
+        | ZERO                         { LZero }
+
+Type    : TYPE                         { Base }
+        | TYPEUNIT                     { Unit }
+        | NAT                          { Nat } 
+        | '(' Type ',' Type ')'        { Tup $2 $4 }
+        | Type '->' Type               { Fun $1 $3 }
+        | '(' Type ')'                 { $2 }
+
+Defs    : Defexp Defs                  { $1 : $2 }
+        |                              { [] }
+     
+{
+
+data ParseResult a = Ok a | Failed String
+                     deriving Show                     
+type LineNumber = Int
+type P a = String -> LineNumber -> ParseResult a
+
+getLineNo :: P LineNumber
+getLineNo = \s l -> Ok l
+
+thenP :: P a -> (a -> P b) -> P b
+m `thenP` k = \s l-> case m s l of
+                         Ok a     -> k a s l
+                         Failed e -> Failed e
+                         
+returnP :: a -> P a
+returnP a = \s l-> Ok a
+
+failP :: String -> P a
+failP err = \s l -> Failed err
+
+catchP :: P a -> (String -> P a) -> P a
+catchP m k = \s l -> case m s l of
+                        Ok a     -> Ok a
+                        Failed e -> k e s l
+
+happyError :: P a
+happyError = \ s i -> Failed $ "Línea "++(show (i::LineNumber))++":
+					                  Error de parseo\n"++(s)
+
+data Token = TVar String
+               | TType
+               | TDef
+               | TTypeUnit
+               | TNat
+               | TAbs
+               | TDot
+               | TOpen
+               | TClose 
+               | TColon
+               | TArrow
+               | TComma
+               | TEquals
+               | TLet
+               | TAs
+               | TIn
+               | TokenUnit
+               | TFst
+               | TSnd
+               | TZero
+               | TSuc
+               | TR
+               | TEOF
+               deriving Show
+
+lexer cont s = case s of
+                    [] -> cont TEOF []
+                    ('\n':s)  ->  \line -> lexer cont s (line + 1)
+                    (c:cs)
+                          | isSpace c -> lexer cont cs
+                          | isAlpha c -> lexVar (c:cs)
+                    ('-':('-':cs)) -> lexer cont $ dropWhile ((/=) '\n') cs
+                    ('{':('-':cs)) -> consumirBK 0 0 cont cs	
+	            ('-':('}':cs)) -> \ line -> Failed $ "Línea "++(show line)++":
+	            				        Comentario no abierto"
+                    ('-':('>':cs)) -> cont TArrow cs
+                    ('\\':cs)-> cont TAbs cs
+                    ('.':cs) -> cont TDot cs
+                    ('(':cs) -> cont TOpen cs
+                    ('-':('>':cs)) -> cont TArrow cs
+                    (')':cs) -> cont TClose cs
+                    (':':cs) -> cont TColon cs
+                    ('=':cs) -> cont TEquals cs
+                    (',':cs) -> cont TComma cs
+                    ('0':cs) -> cont TZero cs
+                    unknown -> \line -> Failed $ "Línea "++(show line)++":
+                          No se puede reconocer "++(show $ take 10 unknown)++ "..."
+                    where lexVar cs = case span isAlpha cs of
+                                           ("B",rest)   -> cont TType rest
+                                           ("Unit", rest) -> cont TTypeUnit rest
+                                           ("Nat", rest) -> cont TNat rest
+                                           ("def",rest) -> cont TDef rest
+                                           ("let",rest) -> cont TLet rest
+                                           ("in",rest) -> cont TIn rest
+                                           ("as", rest) -> cont TAs rest
+                                           ("unit", rest) -> cont TokenUnit rest
+                                           ("fst", rest) -> cont TFst rest
+                                           ("snd", rest) -> cont TSnd rest
+                                           ("suc", rest) -> cont TSuc rest
+                                           ("R", rest) -> cont TR rest
+                                           (var,rest)   -> cont (TVar var) rest
+                          consumirBK anidado cl cont s = case s of
+                                       		   ('-':('-':cs)) ->
+                                       		      consumirBK anidado cl
+                                       		      cont $ dropWhile
+                                       		      ((/=) '\n') cs
+		                                           ('{':('-':cs)) ->
+		                                             consumirBK (anidado+1)
+		                                             cl cont cs	
+		                                             ('-':('}':cs)) ->
+		                                              case anidado of
+			                                       0 -> \line -> lexer
+			                                            cont cs (line+cl)
+			                                       _ -> consumirBK
+			                                            (anidado-1) cl
+			                                            cont cs
+		                                              ('\n':cs) ->
+		                                                consumirBK anidado
+		                                                (cl+1) cont cs
+		                                              (_:cs) -> consumirBK
+		                                                 anidado cl cont cs     
+                                           
+stmts_parse s = parseStmts s 1
+stmt_parse s = parseStmt s 1
+term_parse s = term s 1
+}
+\end{Verbatim}
+Código de PrettyPrinter.hs:
+\begin{Verbatim}[commandchars=\&\{\}]
+&textcolor{blue}{module PrettyPrinter} (
+       printTerm,     &textcolor{red}{-- pretty printer para terminos}
+       printType,     &textcolor{red}{-- pretty printer para tipos}
+       )
+       &textcolor{blue}{where}
+
+&textcolor{orange}{import Common}
+&textcolor{orange}{import Text.PrettyPrint.HughesPJ}
+
+&textcolor{red}{-- lista de posibles nombres para variables}
+vars :: [&textcolor{orange}{String}]
+vars = [ c : n | n <- &textcolor{orange}{""} : map show [1..], c <- [&textcolor{orange}{'x'},&textcolor{orange}{'y'},&textcolor{orange}{'z'}] ++ [&textcolor{orange}{'a'}..&textcolor{orange}{'w'}] ]
+              
+parensIf :: &textcolor{orange}{Bool} -> &textcolor{orange}{Doc} -> &textcolor{orange}{Doc}
+parensIf &textcolor{orange}{True}  = parens
+parensIf &textcolor{orange}{False} = id
+
+&textcolor{red}{-- pretty-printer de términos}
+
+pp :: &textcolor{orange}{Int} -> [&textcolor{orange}{String}] -> &textcolor{orange}{Term} -> &textcolor{orange}{Doc}
+pp ii vs &textcolor{orange}{TUnit}             = text &textcolor{orange}{"unit"}
+pp ii vs &textcolor{orange}{Zero}              = text &textcolor{orange}{"0"}
+pp ii vs (&textcolor{orange}{Suc} t)           = text &textcolor{orange}{"suc "} <>
+                             parensIf (not (isAtm t)) (pp ii vs t)
+pp ii vs (&textcolor{orange}{Bound} k)         = text (vs !! (ii - k - &textcolor{green}{1}))
+pp _  vs (&textcolor{orange}{Free} (&textcolor{orange}{Global} s)) = text s
+pp ii vs (i :@: c)         = sep [parensIf (isLam i) (pp ii vs i), 
+                               nest &textcolor{green}{1} (parensIf (isLam c || isApp c) (pp ii vs c))]  
+pp ii vs (&textcolor{orange}{Lam} t c)         = text &textcolor{orange}{"\\"} <>
+                             text (vs !! ii) <>
+                             text &textcolor{orange}{":"} <>
+                             printType t <>
+                             text &textcolor{orange}{". "} <> 
+                             pp (ii+&textcolor{green}{1}) vs c
+pp ii vs (&textcolor{orange}{Let} t0 t1)       = text &textcolor{orange}{"let "} <>
+                             text (vs !! ii) <>
+                             text &textcolor{orange}{" = "} <>
+                             pp ii vs t0 <>
+                             text &textcolor{orange}{" in "} <>
+                             pp (ii+1) vs t1
+pp ii vs (&textcolor{orange}{As} u t)          = pp ii vs u <>
+                             text &textcolor{orange}{" as "} <>
+                             printType t
+pp ii vs (&textcolor{orange}{TTup} t0 t1)      = text &textcolor{orange}{"("} <>
+                             pp ii vs t0 <>
+                             text &textcolor{orange}{","} <>
+                             pp ii vs t1 <>
+                             text &textcolor{orange}{")"}
+pp ii vs (&textcolor{orange}{Fst} t)           = text &textcolor{orange}{"fst "} <>
+                             pp ii vs t
+pp ii vs (&textcolor{orange}{Snd} t)           = text &textcolor{orange}{"snd"} <>
+                             pp ii vs t
+pp ii vs (&textcolor{orange}{R} t0 t1 t2)      = text &textcolor{orange}{"R"} <>
+                             pp ii vs t0 <>
+                             pp ii vs t1 <>
+                             pp ii vs t2
+                                                         
+isLam (&textcolor{orange}{Lam} _ _) = &textcolor{orange}{True}
+isLam  _      = &textcolor{orange}{False}
+   
+isApp (_ :@: _) = &textcolor{orange}{True}
+isApp _         = &textcolor{orange}{False}
+
+isAtm &textcolor{orange}{TUnit}        = &textcolor{orange}{True}
+isAtm &textcolor{orange}{Zero}         = &textcolor{orange}{True}
+isAtm (&textcolor{orange}{TTup} t0 t1) = &textcolor{orange}{True}
+isAtm _            = &textcolor{orange}{False}
+
+
+
+&textcolor{red}{-- pretty-printer de tipos}
+printType :: &textcolor{orange}{Type} -> &textcolor{orange}{Doc}
+printType &textcolor{orange}{Base}         = text &textcolor{orange}{"B"}
+printType &textcolor{orange}{Unit}         = text &textcolor{orange}{"Unit"}
+printType &textcolor{orange}{Nat}          = text &textcolor{orange}{"Nat"}
+printType (&textcolor{orange}{Fun} t1 t2)  = sep [ parensIf (isFun t1) (printType t1), 
+                               text &textcolor{orange}{"->"}, 
+                               printType t2]
+printType (&textcolor{orange}{Tup} t1 t2)  = text &textcolor{orange}{"("} <>
+                         printType t1 <>
+                         text &textcolor{orange}{","} <>
+                         printType t2 <>
+                         text &textcolor{orange}{")"}
+
+
+isFun (&textcolor{orange}{Fun} _ _)        = &textcolor{orange}{True}
+isFun _                = &textcolor{orange}{False}
+
+fv :: &textcolor{orange}{Term} -> [&textcolor{orange}{String}]
+fv &textcolor{orange}{TUnit}             = []
+fv &textcolor{orange}{Zero}              = []
+fv (&textcolor{orange}{Suc} t)           = fv t
+fv (&textcolor{orange}{Bound} _)         = []
+fv (&textcolor{orange}{Free} (&textcolor{orange}{Global} n)) = [n]
+fv (&textcolor{orange}{Free} _)          = []
+fv (t :@: u)         = fv t ++ fv u
+fv (&textcolor{orange}{Lam} _ u)         = fv u
+fv (&textcolor{orange}{Let} t0 t1)       = fv t0 ++ fv t1
+fv (&textcolor{orange}{As} u t)          = fv u
+fv (&textcolor{orange}{Fst} t)           = fv t
+fv (&textcolor{orange}{Snd} t)           = fv t
+fv (&textcolor{orange}{TTup} t0 t1)      = fv t0 ++ fv t1
+fv (&textcolor{orange}{R} t0 t1 t2)      = fv t0 ++ fv t1 ++ fv t2
+  
+---
+printTerm :: &textcolor{orange}{Term} -> &textcolor{orange}{Doc} 
+printTerm t = pp &textcolor{green}{0} (filter (\v -> not $ elem v (fv t)) vars) t
+\end{Verbatim}
+\newpage
 \end{document}

@@ -32,25 +32,25 @@ pp ii vs (Lam t c)         = text "\\" <>
                              printType t <>
                              text ". " <> 
                              pp (ii+1) vs c
-pp ii vs (Let t0 t1)       = text "let" <>
+pp ii vs (Let t0 t1)       = text "let " <>
                              text (vs !! ii) <>
-                             text "=" <>
+                             text " = " <>
                              pp ii vs t0 <>
-                             text "in" <>
+                             text " in " <>
                              pp (ii+1) vs t1
 pp ii vs (As u t)          = pp ii vs u <>
-                             text "as" <>
+                             text " as " <>
                              printType t
 pp ii vs (TTup t0 t1)      = text "(" <>
                              pp ii vs t0 <>
                              text "," <>
                              pp ii vs t1 <>
                              text ")"
-pp ii vs (Fst t)           = text "fst" <>
+pp ii vs (Fst t)           = text "fst " <>
                              pp ii vs t
-pp ii vs (Snd t)           = text "snd" <>
+pp ii vs (Snd t)           = text "snd " <>
                              pp ii vs t
-pp ii vs (R t0 t1 t2)      = text "R" <>
+pp ii vs (R t0 t1 t2)      = text "R " <>
                              pp ii vs t0 <>
                              pp ii vs t1 <>
                              pp ii vs t2

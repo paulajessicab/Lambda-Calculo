@@ -1,0 +1,4 @@
+def suma = \n:Nat. \m:Nat. R n (\x:Nat. \y:Nat. (suc x)) m
+
+def predec = \n:Nat. R 0 (\x:Nat. \y:Nat. y) n
+
