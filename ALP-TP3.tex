@@ -1,0 +1,198 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{proof}
+\usepackage{framed}
+\usepackage[spanish]{babel}
+\usepackage[pdftex]{graphicx}
+\usepackage{amsmath,amsthm,amssymb,amsfonts,latexsym,cancel}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{stmaryrd}
+\usepackage{blindtext, rotating}
+\usepackage{geometry}
+\usepackage{multicol, multirow}
+\usepackage{fancyhdr}
+\usepackage{fancyvrb}
+\usepackage{verbatim} %sacar si no usamos verbatim!!
+\usepackage{listings} % Required for insertion of code
+\usepackage[usenames,dvipsnames]{color} % Required for custom colors
+\usepackage{anysize}
+%\everymath{\displaystyle}
+
+\setlength{\parindent}{0cm}
+\setlength{\parskip}{\baselineskip}
+
+\definecolor{orange}{RGB}{255,127,0}
+
+%------------------------------CONFIGURACIÓN CÓDIGO---------------------------------------------
+\definecolor{MyDarkGreen}{rgb}{0.0,0.4,0.0} % This is the color used for comments
+
+\definecolor{identifierColor}{rgb}{0.65,0.16,0.16}
+
+\lstset{language=Haskell,
+        frame=single, % Single frame around code
+        basicstyle=\small\ttfamily, % Use small true type font
+        keywordstyle=[1]\color{Blue}\bf, % Perl functions bold and blue
+        keywordstyle=[2]\color{Black}, % Perl function arguments purple
+        keywordstyle=[3]\color{Blue}\underbar, % Custom functions underlined and blue
+        identifierstyle=\color{identifierColor}, % Nothing special about identifiers                                         
+        commentstyle=\usefont{T1}{pcr}{m}{sl}\color{MyDarkGreen}\small, % Comments small dark green courier font
+        stringstyle=\color{Black}, % Strings are purple
+        showstringspaces=false, % Don't put marks in string spaces
+        tabsize=5, % 5 spaces per tab
+        %
+        % Put standard Perl functions not included in the default language here
+        morekeywords={rand},
+        %
+        % Put Perl function parameters here
+        morekeywords=[2]{on, off, interp},
+        %
+        % Put user defined functions here
+        morekeywords=[3]{test},
+       	%
+        morecomment=[l][\color{Blue}]{...}, % Line continuation (...) like blue comment
+        numbers=left, % Line numbers on left
+        firstnumber=1, % Line numbers start with line 1
+        numberstyle=\tiny\color{Blue}, % Line numbers are blue and small
+        stepnumber=5 % Line numbers go in steps of 5
+}
+%-----------------------------------------------------------------------------------------------
+
+
+%-------------------------------PORTADA---------------------------------------
+\newcommand{\hmwkClassTitle}{Trabajo Práctico III}
+\newcommand{\hmwkClassName}{Análisis de Lenguajes de Programación}
+
+\title{
+\vspace{2in}
+\textmd{\textbf{\hmwkClassTitle}}\\
+%\normalsize\vspace{0.1in}\small{Entrega:\ \hmwkDueDate}\\
+\vspace{0.1in}\large{\textit{\hmwkClassName}}
+\vspace{3in}
+}
+\date{3 de septiembre de 2015}
+\author{Borrero, Paula (P-4415/6) \and Herranz, Cecilia (H-0471/5) }
+%-----------------------------------------------------------------------------
+
+
+\begin{document}
+\maketitle
+\marginsize{2cm}{2cm}{2cm}{2cm}
+\newpage
+{\bf Ejercicio 1}\\
+\\
+$S = \backslash x:B->B->B.\backslash y:B->B.\backslash z:B.(x z) (y z)$
+
+Árbol de derivación en página 4.
+
+El resultado del árbol queda comprobado usando el intérprete:
+\vspace{-0.5cm}
+\begin{verbatim}
+ST> :type S
+(B -> B -> B) -> (B -> B) -> B -> B
+\end{verbatim}
+
+{\bf Ejercicio 2}\\
+\\
+infer retorna un valor de tipo Either para poder devolver mensajes de error cuando no se pueda inferir el tipo de la expresión.
+
+$\gg =$ toma un valor v de tipo Either String Type y una función f de tipo Type $\rightarrow$ Either String Type y retorna Left v si es una cadena (Left) o la función f aplicada a v si es un tipo (Right). Sirve para propagar errores.
+\\
+
+{\bf Ejercicio 5}\\
+\\
+Árbol de tipado para $(let\,\, z = ((\lambda x : B. x)\,\, as\,\, B \rightarrow B)\,\, in\,\,z)\,\, as\,\, B \rightarrow B$:
+\begin{center}
+\begin{minipage}{\linewidth}
+\infer[\scriptstyle T-ASCRIBE]{\vdash \, \, (let\, z\, = ((\lambda x:B.x)\, \, as\, \, B \rightarrow B)\, \, in \, \, z)\,\, as \, \, B \rightarrow B: B\rightarrow B}{\infer[\scriptstyle T-LET]{\vdash \, \, (let \, z\, =  ((\lambda x:B.x) \, \, as \, \, B \rightarrow B) \, \, in \, \, z):B \rightarrow B}{
+	\infer[\scriptstyle T-ASCRIBE]{\vdash \, \,(\lambda x:B.x) \, \, as \, \, B \rightarrow B:B \rightarrow B}{\infer[\scriptstyle T-ABS]{\vdash \, \,(\lambda x:B.x):B \rightarrow B}{\infer[\scriptstyle T-VAR]{x:B\vdash x:B}{x:B \in x:B}}}
+	&
+	\infer[\scriptstyle T-VAR]{z:B \rightarrow B \vdash z:B \rightarrow B}{z:B \rightarrow B \in z:B \rightarrow B}
+}}
+\end{minipage}
+\end{center}
+
+El resultado del árbol queda comprobado usando el intérprete:
+\vspace{-0.5cm}
+\begin{verbatim}
+ST> :type (let z = ((\x:B.x) as B -> B) in z) as B->B
+B -> B
+\end{verbatim}
+
+\newpage
+{\bf Ejercicio 7}\\
+\\
+Reglas de evaluación para pares:\\
+
+\begin{multicols}{2}
+\infer[\scriptstyle (E-PAIR1)]{(t_{1},t_{2}) \rightarrow (t'_{1},t_{2})}{t_{1} \rightarrow t'_{1}}
+\vspace{0.5cm}
+\infer[\scriptstyle (E-FST0)]{FST\,\, t \rightarrow FST\, \, t'}{t \rightarrow t'}
+\vspace{0.5cm}
+\infer[\scriptstyle (E-FST1)]{FST\,\, (v_{1},v_{2}) \rightarrow v_{1}}{}
+\columnbreak
+\infer[\scriptstyle (E-PAIR2)]{(v,t_{2}) \rightarrow (v, t'_{2})}{t_{2} \rightarrow t'_{2}}
+\vspace{0.5cm}
+\infer[\scriptstyle (E-SND0)]{SND\,\, t \rightarrow SND\, \, t'}{t \rightarrow t'}
+\vspace{0.5cm}
+\infer[\scriptstyle (E-SND1)]{SND\,\, (v_{1},v_{2}) \rightarrow v_{2}}{}
+\end{multicols}
+{\bf Ejercicio 9}\\
+\\
+Árbol de tipado para $fst\, \, (unit\, \, as \, \, Unit,\, \lambda x : (B, B). snd\, \, x)$:
+\\
+\begin{center}
+\begin{minipage}{\linewidth}
+\infer[\scriptstyle T-FST]{\vdash fst\, \, (unit\, \, as\, \, Unit, \lambda x:(B,B).snd\, \, x): Unit}{\infer[\scriptstyle T-PAIR]{\vdash (unit\, \, as\, \, Unit, \lambda x:(B,B).snd\, \, x): (Unit, (B \rightarrow B) \rightarrow B)}{\infer[\scriptstyle T-ASCRIBE]{\vdash unit\, \, as\, \, Unit:Unit}{\infer[\scriptstyle T-UNIT]{\vdash unit:Unit}{}}
+&
+\infer[\scriptstyle T-ABS]{\vdash \lambda x:(B,B).snd\, \, x:(B\rightarrow B)\rightarrow B}{\infer[\scriptstyle T-SND]{x:(B,B) \vdash snd\, \, x:B}{\infer[\scriptstyle T-VAR]{x:(B,B) \vdash x:(B,B)}{x:(B,B)\in x:(B,B)}}}
+}}
+\end{minipage}
+\end{center}
+El resultado del árbol queda comprobado usando el intérprete:
+\vspace{-0.5cm}
+\begin{verbatim}
+ST> :type fst (unit as Unit, \x:(B,B). snd x)
+Unit
+\end{verbatim}
+{\bf Ejercicio 11}\\
+\\
+La función Ack queda definida como:
+\vspace{-0.5cm}
+\begin{verbatim}
+def ack = \m:Nat. R (\n:Nat. suc n) (\x:Nat->Nat. \y:Nat. \n:Nat. R (x (suc 0)) 
+                                                       (\p:Nat. \q:Nat. x p) n) m
+\end{verbatim}
+\newpage
+\marginsize{2cm}{2cm}{2cm}{2cm}
+
+\newgeometry{top=11cm}
+\begin{center}
+\begin{turn}{90}
+\begin{minipage}{\linewidth}
+\begin{multicols}{2}
+\infer[\scriptstyle T-ABS]{\scriptstyle \vdash \backslash x :B\rightarrow B\rightarrow B. \backslash y:B\rightarrow B. \backslash z: B. (x z)(y z):(B \rightarrow B\rightarrow B)\rightarrow (B\rightarrow B)\rightarrow B\rightarrow B}{
+\infer[\scriptstyle T-ABS]{\scriptstyle x:B\rightarrow B\rightarrow B\,\, \vdash \, \, \backslash y:B\rightarrow B.\backslash z:B.(x z)(y z):(B\rightarrow B)\rightarrow B\rightarrow B}{
+\infer[\scriptstyle T-ABS]{\scriptstyle x:B\rightarrow B\rightarrow B,\, y:B\rightarrow B \, \, \vdash \, \, \backslash z:B.(x z)(y z):B\rightarrow B}{
+\infer[\scriptstyle T-APP]{\scriptstyle x:B\rightarrow B\rightarrow B,\, y:B\rightarrow B, z:B \, \, \vdash \, \, (x z)(y z):B}{
+	\infer[\scriptstyle T-APP]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \,\, (x z):B \rightarrow B}{
+	\infer[\scriptstyle T-VAR]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \,\, x:B\rightarrow B\rightarrow B}{}
+	&
+	\infer[\scriptstyle T-VAR]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \,\, z:B}{}
+}
+&
+	\infer[\scriptstyle T-APP]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \, \, (y z):B}{
+	\infer[\scriptstyle T-VAR]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \,\, y:B\rightarrow B}{}
+	&
+	\infer[\scriptstyle T-VAR]{\scriptstyle x:B\rightarrow B\rightarrow B, y:B\rightarrow B, z:B \, \, \vdash \,\, z:B}{}}}
+}
+}
+}
+\end{multicols}
+\end{minipage}
+\end{turn}
+\end{center}
+\newpage
+\marginsize{2cm}{2cm}{2cm}{2cm}
+{\bf Los ejercicios 3, 4, 6, 8 y 10 se encuentran resueltos en el código escrito a continuación:}\\
+\end{document}

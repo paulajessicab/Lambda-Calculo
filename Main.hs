@@ -5,7 +5,7 @@ module Main where
  
   import Control.Monad.Except
 -- En lugar Control.Monad.Except, en versiones viejas de GHC usar
---  import Control.Monad.Error 
+--import Control.Monad.Error 
 
   import Data.Char
   import Data.List

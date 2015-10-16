@@ -12,7 +12,6 @@ import Prelude hiding ((>>=))
 import Text.PrettyPrint.HughesPJ (render)
 import PrettyPrinter
 import Common
-import Data.Either.Unwrap
 
 -- conversion a términos localmente sin nombres
 conversion :: LamTerm -> Term
@@ -33,8 +32,7 @@ conversion' b (LSuc t)       = Suc (conversion' b t)
 conversion' b (LR t0 t1 t2)  = R (conversion' b t0) (conversion' b t1) (conversion' b t2)
 
  
---- eval
------------------------
+--- eval ----------------------
 
 sub :: Int -> Term -> Term -> Term
 sub i t (Bound j) | i == j    = t
@@ -65,11 +63,11 @@ eval e (Lam t u :@: v)       = case eval e v of
                  VLam t' u' -> eval e (Lam t u :@: Lam t' u')
                  VUnit      -> eval e (sub 0 TUnit u)
                  VZero      -> eval e (sub 0 Zero u)
-                 VSuc x     -> eval e (sub 0 (quote x) u)
-                 _          -> error "Error de tipo en run-time, verificar type checker0"
+                 VSuc x     -> eval e (sub 0 (quote (VSuc x)) u)
+                 _          -> error "Error de tipo en run-time, verificar type checker"
 eval e (u :@: v)             = case eval e u of
                  VLam t u' -> eval e (Lam t u' :@: v)
-                 _         -> error "Error de tipo en run-time, verificar type checker1"
+                 _         -> error "Error de tipo en run-time, verificar type checker"
 eval e (Let t0 t1)           = eval e (sub 0 (quote (eval e t0)) t1) --ver case
 eval e (As u t)              = eval e u
 eval e (Fst t)              = case eval e t of
@@ -135,7 +133,7 @@ infer' _ _ Zero      = ret Nat
 infer' c e (Suc t)  = infer' c e t >>= \tt->
                             case tt of
                                 Nat -> ret Nat
-                                _   -> notfunError tt
+                                _   -> matchError Nat tt
 infer' c _ (Bound i) = ret (c !! i)
 infer' _ e (Free n) = case lookup n e of
                         Nothing -> notfoundError n
@@ -155,7 +153,7 @@ infer' c e (As u t) = infer' c e u >>= \tu ->
                             if tu == t then ret t else matchError t tu
 infer' c e (TTup t0 t1) = infer' c e t0 >>= \tt0 ->
                           infer' c e t1 >>= \tt1 ->
-                                ret (Tup tt0 tt1)
+                               ret (Tup tt0 tt1)
 infer' c e (Fst t) = infer' c e t >>= \tt ->
                         case tt of
                             Tup tt0 tt1 -> ret tt0

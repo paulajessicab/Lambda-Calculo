@@ -159,6 +159,7 @@ lexer cont s = case s of
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
                     (',':cs) -> cont TComma cs
+                    ('0':cs) -> cont TZero cs
                     unknown -> \line -> Failed $ "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
                                            ("B",rest)   -> cont TType rest
@@ -171,7 +172,6 @@ lexer cont s = case s of
                                            ("unit", rest) -> cont TokenUnit rest
                                            ("fst", rest) -> cont TFst rest
                                            ("snd", rest) -> cont TSnd rest
-                                           ("zero", rest) -> cont TZero rest
                                            ("suc", rest) -> cont TSuc rest
                                            ("R", rest) -> cont TR rest
                                            (var,rest)   -> cont (TVar var) rest

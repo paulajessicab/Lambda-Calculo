@@ -19,9 +19,9 @@ parensIf False = id
 
 pp :: Int -> [String] -> Term -> Doc
 pp ii vs TUnit             = text "unit"
-pp ii vs Zero              = text "zero"
-pp ii vs (Suc t)           = text "suc" <>
-                             pp ii vs t
+pp ii vs Zero              = text "0"
+pp ii vs (Suc t)           = text "suc " <>
+                             parensIf (not (isAtm t)) (pp ii vs t)
 pp ii vs (Bound k)         = text (vs !! (ii - k - 1))
 pp _  vs (Free (Global s)) = text s
 pp ii vs (i :@: c)         = sep [parensIf (isLam i) (pp ii vs i), 
@@ -59,7 +59,12 @@ isLam (Lam _ _) = True
 isLam  _      = False
    
 isApp (_ :@: _) = True
-isApp _         = False                                                               
+isApp _         = False
+
+isAtm TUnit        = True
+isAtm Zero         = True
+isAtm (TTup t0 t1) = True
+isAtm _            = False
 
 -- pretty-printer de tipos
 printType :: Type -> Doc
